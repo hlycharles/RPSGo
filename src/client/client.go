@@ -1,13 +1,20 @@
 package main
 
 import (
-	"os"
+	"../rps"
 	"bufio"
-	"net"
+	"encoding/json"
 	"fmt"
+	"net"
+	"os"
 )
 
 const port = ":8888"
+
+type client struct {
+	conn         net.Conn
+	currentScore int
+}
 
 /**
  * Connect to server.
@@ -18,13 +25,25 @@ func main() {
 		fmt.Println("Unable to connect to server")
 		return
 	}
-	handleConnection(conn)
+	c := client{
+		conn:         conn,
+		currentScore: 0,
+	}
+	c.handleConnection()
 }
 
 /**
  * Handle connection to server.
  */
-func handleConnection(conn net.Conn) {
+func (c client) handleConnection() {
+	go c.handleServerMessage()
+	c.handleClientInput()
+}
+
+/**
+ * Handle client input.
+ */
+func (c client) handleClientInput() {
 	reader := bufio.NewReader(os.Stdin)
 	for {
 		text, err := reader.ReadString('\n')
@@ -34,9 +53,26 @@ func handleConnection(conn net.Conn) {
 		}
 		// remove newline character
 		text = text[:len(text)-1]
-		_, writeErr := conn.Write([]byte(text))
+		_, writeErr := c.conn.Write([]byte(text))
 		if writeErr != nil {
 			fmt.Println("Unable to write to server")
 		}
+	}
+}
+
+/**
+ * Handle message from server.
+ */
+func (c client) handleServerMessage() {
+	for {
+		buffer := make([]byte, 100)
+		n, err := c.conn.Read(buffer)
+		if err != nil {
+			fmt.Println("Unable to read from server")
+			return
+		}
+		m := rps.Message{}
+		json.Unmarshal(buffer[:n], &m)
+		fmt.Println(m.MsgContent)
 	}
 }
