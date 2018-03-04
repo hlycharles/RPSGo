@@ -5,22 +5,25 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strconv"
+	"sync"
 )
 
 const (
-	port    = ":8888"
-	joinMsg = "Successfully joined the game..."
+	port = ":8888"
 )
 
 const (
 	maxWait = 1000
 )
 
-type game struct {
-}
-
 type server struct {
-	waitQ chan *net.Conn
+	connQ   chan *net.Conn
+	gameQ   chan int
+	players map[int](*net.Conn)
+
+	// mutexes
+	playerMutex *sync.Mutex
 }
 
 /**
@@ -34,8 +37,14 @@ func main() {
 	}
 
 	s := server{
-		waitQ: make(chan (*net.Conn), maxWait),
+		connQ:       make(chan (*net.Conn), maxWait),
+		gameQ:       make(chan int, maxWait),
+		players:     make(map[int](*net.Conn)),
+		playerMutex: &sync.Mutex{},
 	}
+
+	go s.processConnection()
+	go s.handleStartGameRequest()
 
 	for {
 		conn, aErr := ln.Accept()
@@ -43,12 +52,11 @@ func main() {
 			fmt.Println("Unable to connect to client")
 			continue
 		}
-		go s.handleConnection(conn)
+		s.connQ <- &conn
 	}
 }
 
-func writeInfoMessage(conn *net.Conn, msg string) {
-	m := rps.InfoMessage(msg)
+func writeMessage(conn *net.Conn, m rps.Message) {
 	buf, err := json.Marshal(m)
 	if err != nil {
 		fmt.Println("Unable to marshal message")
@@ -60,19 +68,60 @@ func writeInfoMessage(conn *net.Conn, msg string) {
 	}
 }
 
+func (s *server) processConnection() {
+	for {
+		select {
+		case c := <-s.connQ:
+			s.playerMutex.Lock()
+			id := len(s.players)
+			s.players[id] = c
+			s.playerMutex.Unlock()
+			go s.handleConnection(c, id)
+		}
+	}
+}
+
 /**
  * Handle connection from client.
  */
-func (s server) handleConnection(conn net.Conn) {
-	s.waitQ <- &conn
-	writeInfoMessage(&conn, joinMsg)
+func (s *server) handleConnection(conn *net.Conn, id int) {
+	m := rps.Message{
+		MsgType:    rps.MsgConnected,
+		MsgContent: strconv.Itoa(id),
+	}
+	go writeMessage(conn, m)
 	for {
 		buffer := make([]byte, 100)
-		n, err := conn.Read(buffer)
+		n, err := (*conn).Read(buffer)
 		if err != nil {
-			fmt.Println("Unable to read from client")
+			fmt.Println("Client disconnected")
 			return
 		}
-		fmt.Println(string(buffer[:n]))
+		m := rps.Message{}
+		json.Unmarshal(buffer[:n], &m)
+		switch m.MsgType {
+		case rps.MsgStart:
+			fmt.Println("Starting game")
+			s.gameQ <- id
+		default:
+			fmt.Println("Unrecognized message from client:")
+			fmt.Println(m)
+		}
+	}
+}
+
+func (s *server) handleStartGameRequest() {
+	for {
+		select {
+		case id := <-s.gameQ:
+			for {
+				p := <-s.gameQ
+				if id == p {
+					continue
+				}
+				// TODO: start a game
+				fmt.Println("Starting a game")
+			}
+		}
 	}
 }

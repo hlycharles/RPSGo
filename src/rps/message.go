@@ -4,21 +4,18 @@ package rps
 type MsgType int
 
 const (
-	// MsgInfo : informational message
-	MsgInfo MsgType = iota
+	// MsgConnected : connected to server
+	MsgConnected MsgType = iota
+	// MsgStart : client ready for game
+	MsgStart
+	// MsgOponent : found an oponent
+	MsgOponent
+	// MsgMove : client make a move
+	MsgMove
 )
 
 // Message : message between server and client
 type Message struct {
 	MsgType    MsgType
 	MsgContent string
-}
-
-// InfoMessage : create informational message
-func InfoMessage(msg string) *Message {
-	m := Message{
-		MsgType:    MsgInfo,
-		MsgContent: msg,
-	}
-	return &m
 }
