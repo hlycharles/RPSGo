@@ -25,6 +25,7 @@ type client struct {
 	currentScore int
 	state        clientState
 	id           int
+	closeChan    chan bool
 }
 
 /**
@@ -40,8 +41,10 @@ func main() {
 		conn:         conn,
 		currentScore: 0,
 		state:        clientWait,
+		closeChan:    make(chan bool),
 	}
 	c.handleConnection()
+	<-c.closeChan
 }
 
 /**
@@ -49,7 +52,7 @@ func main() {
  */
 func (c *client) handleConnection() {
 	go c.handleServerMessage()
-	c.handleClientInput()
+	go c.handleClientInput()
 }
 
 /**
@@ -115,6 +118,13 @@ func (c *client) handleServerMessage() {
 		case rps.MsgOponent:
 			c.state = clientInGame
 			fmt.Println("Found an oponent")
+		case rps.MsgWaitMove:
+			fmt.Println("Waiting for oponent")
+		case rps.MsgGameEnd:
+			c.state = clientConnected
+			fmt.Println("Game has ended")
+		default:
+			fmt.Println("Unrecognized server message")
 		}
 	}
 }

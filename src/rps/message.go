@@ -8,10 +8,14 @@ const (
 	MsgConnected MsgType = iota
 	// MsgStart : client ready for game
 	MsgStart
-	// MsgOponent : found an oponent
+	// MsgOponent : server found an oponent
 	MsgOponent
 	// MsgMove : client make a move
 	MsgMove
+	// MsgWaitMove : server needs to wait for another player's move
+	MsgWaitMove
+	// MsgGameEnd : server decides a game has ended
+	MsgGameEnd
 )
 
 // Message : message between server and client
