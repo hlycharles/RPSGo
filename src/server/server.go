@@ -10,11 +10,6 @@ import (
 	"../rps"
 )
 
-const (
-	port   = ":8888"
-	maxCap = 1000
-)
-
 type game struct {
 	indices map[int]int
 	moves   [2]string
@@ -38,15 +33,15 @@ type server struct {
 
 // Start server to listen to connections.
 func main() {
-	ln, lErr := net.Listen("tcp", port)
+	ln, lErr := net.Listen("tcp", rps.Port)
 	if lErr != nil {
 		fmt.Println("Unable to create server")
 		return
 	}
 
 	s := server{
-		connQ:       make(chan (*net.Conn), maxCap),
-		gameQ:       make(chan int, maxCap),
+		connQ:       make(chan (*net.Conn), rps.MaxChanCap),
+		gameQ:       make(chan int, rps.MaxChanCap),
 		players:     make(map[int]player),
 		games:       make(map[int]game),
 		playerMutex: &sync.Mutex{},
@@ -136,14 +131,19 @@ func (s *server) handleClientMove(conn *net.Conn, id int, move string) {
 		}
 		go rps.WriteMessage(conn, m)
 	} else {
-		m := rps.Message{
-			MsgType: rps.MsgGameEnd,
-		}
 		s.playerMutex.Lock()
 		for k := range gameInfo.indices {
 			pInfo, _ := s.players[k]
 			pInfo.game = -1
 			s.players[k] = pInfo
+			m := rps.Message{
+				MsgType: rps.MsgGameEnd,
+			}
+			if id == k {
+				m.MsgContent = rps.GetRoundResult(move, oponentMove)
+			} else {
+				m.MsgContent = rps.GetRoundResult(oponentMove, move)
+			}
 			go rps.WriteMessage(pInfo.conn, m)
 		}
 		s.playerMutex.Unlock()

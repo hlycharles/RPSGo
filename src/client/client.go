@@ -11,8 +11,6 @@ import (
 	"../rps"
 )
 
-const port = ":8888"
-
 type clientState int
 
 const (
@@ -31,7 +29,7 @@ type client struct {
 
 // Connect to server.
 func main() {
-	conn, err := net.Dial("tcp", port)
+	conn, err := net.Dial("tcp", rps.Port)
 	if err != nil {
 		fmt.Println("Unable to connect to server")
 		return
@@ -70,9 +68,18 @@ func (c *client) handleClientInput() {
 		case clientInGame:
 			// remove newline character
 			text = text[:len(text)-1]
+			if len(text) == 0 {
+				fmt.Println("Please enter a move (R / P / S)")
+				continue
+			}
+			move := string(text[0])
+			if move != rps.Rock && move != rps.Paper && move != rps.Scissors {
+				fmt.Printf("Invalid move %v, please enter R / P / S\n", move)
+				continue
+			}
 			m = rps.Message{
 				MsgType:    rps.MsgMove,
-				MsgContent: text,
+				MsgContent: move,
 			}
 		}
 
@@ -109,7 +116,16 @@ func (c *client) handleServerMessage() {
 			fmt.Println("Waiting for oponent")
 		case rps.MsgGameEnd:
 			c.state = clientConnected
-			fmt.Println("Game has ended")
+			switch m.MsgContent {
+			case rps.GameWin:
+				fmt.Println("Win!")
+			case rps.GameDraw:
+				fmt.Println("Draw")
+			case rps.GameLose:
+				fmt.Println("Lose..")
+			default:
+				fmt.Printf("Unrecognized game result %v\n", m.MsgContent)
+			}
 		default:
 			fmt.Println("Unrecognized server message")
 		}
