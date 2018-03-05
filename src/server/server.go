@@ -1,20 +1,18 @@
 package main
 
 import (
-	"../rps"
 	"encoding/json"
 	"fmt"
 	"net"
 	"strconv"
 	"sync"
+
+	"../rps"
 )
 
 const (
-	port = ":8888"
-)
-
-const (
-	maxWait = 1000
+	port   = ":8888"
+	maxCap = 1000
 )
 
 type game struct {
@@ -38,9 +36,7 @@ type server struct {
 	gameMutex   *sync.Mutex
 }
 
-/**
- * Start server to listen to connections.
- */
+// Start server to listen to connections.
 func main() {
 	ln, lErr := net.Listen("tcp", port)
 	if lErr != nil {
@@ -49,8 +45,8 @@ func main() {
 	}
 
 	s := server{
-		connQ:       make(chan (*net.Conn), maxWait),
-		gameQ:       make(chan int, maxWait),
+		connQ:       make(chan (*net.Conn), maxCap),
+		gameQ:       make(chan int, maxCap),
 		players:     make(map[int]player),
 		games:       make(map[int]game),
 		playerMutex: &sync.Mutex{},
@@ -67,18 +63,6 @@ func main() {
 			continue
 		}
 		s.connQ <- &conn
-	}
-}
-
-func writeMessage(conn *net.Conn, m rps.Message) {
-	buf, err := json.Marshal(m)
-	if err != nil {
-		fmt.Println("Unable to marshal message")
-		return
-	}
-	_, err = (*conn).Write(buf)
-	if err != nil {
-		fmt.Println("Fail to write message")
 	}
 }
 
@@ -99,20 +83,18 @@ func (s *server) processConnection() {
 	}
 }
 
-/**
- * Handle connection from client.
- */
+// Handle connection from client.
 func (s *server) handleConnection(conn *net.Conn, id int) {
 	m := rps.Message{
 		MsgType:    rps.MsgConnected,
 		MsgContent: strconv.Itoa(id),
 	}
-	go writeMessage(conn, m)
+	go rps.WriteMessage(conn, m)
 	for {
 		buffer := make([]byte, 100)
 		n, err := (*conn).Read(buffer)
 		if err != nil {
-			fmt.Println("Client disconnected")
+			fmt.Printf("Client %v disconnected\n", id)
 			return
 		}
 		m := rps.Message{}
@@ -152,7 +134,7 @@ func (s *server) handleClientMove(conn *net.Conn, id int, move string) {
 		m := rps.Message{
 			MsgType: rps.MsgWaitMove,
 		}
-		go writeMessage(conn, m)
+		go rps.WriteMessage(conn, m)
 	} else {
 		m := rps.Message{
 			MsgType: rps.MsgGameEnd,
@@ -162,7 +144,7 @@ func (s *server) handleClientMove(conn *net.Conn, id int, move string) {
 			pInfo, _ := s.players[k]
 			pInfo.game = -1
 			s.players[k] = pInfo
-			go writeMessage(pInfo.conn, m)
+			go rps.WriteMessage(pInfo.conn, m)
 		}
 		s.playerMutex.Unlock()
 	}
@@ -212,8 +194,8 @@ func (s *server) handleStartGameRequest() {
 					MsgType:    rps.MsgOponent,
 					MsgContent: strconv.Itoa(gameID),
 				}
-				go writeMessage(requesterInfo.conn, m)
-				go writeMessage(joinerInfo.conn, m)
+				go rps.WriteMessage(requesterInfo.conn, m)
+				go rps.WriteMessage(joinerInfo.conn, m)
 				break
 			}
 		}

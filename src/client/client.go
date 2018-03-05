@@ -1,13 +1,14 @@
 package main
 
 import (
-	"../rps"
 	"bufio"
 	"encoding/json"
 	"fmt"
 	"net"
 	"os"
 	"strconv"
+
+	"../rps"
 )
 
 const port = ":8888"
@@ -28,9 +29,7 @@ type client struct {
 	closeChan    chan bool
 }
 
-/**
- * Connect to server.
- */
+// Connect to server.
 func main() {
 	conn, err := net.Dial("tcp", port)
 	if err != nil {
@@ -47,17 +46,13 @@ func main() {
 	<-c.closeChan
 }
 
-/**
- * Handle connection to server.
- */
+// Handle connection to server.
 func (c *client) handleConnection() {
 	go c.handleServerMessage()
 	go c.handleClientInput()
 }
 
-/**
- * Handle client input.
- */
+// Handle client input.
 func (c *client) handleClientInput() {
 	reader := bufio.NewReader(os.Stdin)
 	for {
@@ -81,27 +76,19 @@ func (c *client) handleClientInput() {
 			}
 		}
 
-		buf, err := json.Marshal(m)
-		if err != nil {
-			fmt.Println("Unable to marshal message")
-			return
-		}
-		_, err = c.conn.Write(buf)
-		if err != nil {
-			fmt.Println("Fail to write message")
-		}
+		rps.WriteMessage(&c.conn, m)
 	}
 }
 
-/**
- * Handle message from server.
- */
+// Handle message from server.
 func (c *client) handleServerMessage() {
 	for {
 		buffer := make([]byte, 100)
 		n, err := c.conn.Read(buffer)
 		if err != nil {
-			fmt.Println("Unable to read from server")
+			// disconnected from server
+			fmt.Println("Disconnected from server")
+			close(c.closeChan)
 			return
 		}
 		m := rps.Message{}
