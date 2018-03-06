@@ -24,11 +24,13 @@ type client struct {
 	currentScore int
 	state        clientState
 	id           int
-	closeChan    chan bool
+	// channel used to terminate go routines
+	closeChan chan bool
 }
 
 // Connect to server.
 func main() {
+	fmt.Println("Welcome to Rock Paper Scissors, connecting to server...")
 	conn, err := net.Dial("tcp", rps.Port)
 	if err != nil {
 		fmt.Println("Unable to connect to server")
@@ -62,6 +64,7 @@ func (c *client) handleClientInput() {
 		var m rps.Message
 		switch c.state {
 		case clientConnected:
+			fmt.Println("Finding an oponent...")
 			m = rps.Message{
 				MsgType: rps.MsgStart,
 			}
@@ -109,9 +112,11 @@ func (c *client) handleServerMessage() {
 				fmt.Println("Unable to process player id")
 			}
 			fmt.Println("Successfully connected to server")
+			fmt.Println("Press ENTER to find an oponent")
 		case rps.MsgOponent:
 			c.state = clientInGame
-			fmt.Println("Found an oponent")
+			fmt.Print("Found an oponent. ")
+			fmt.Println("Enter R, P or S to make a move")
 		case rps.MsgWaitMove:
 			fmt.Println("Waiting for oponent")
 		case rps.MsgGameEnd:
@@ -122,10 +127,11 @@ func (c *client) handleServerMessage() {
 			case rps.GameDraw:
 				fmt.Println("Draw")
 			case rps.GameLose:
-				fmt.Println("Lose..")
+				fmt.Println("Lose...")
 			default:
 				fmt.Printf("Unrecognized game result %v\n", m.MsgContent)
 			}
+			fmt.Println("Press ENTER to find an oponent")
 		default:
 			fmt.Println("Unrecognized server message")
 		}

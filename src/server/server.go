@@ -100,8 +100,7 @@ func (s *server) handleConnection(conn *net.Conn, id int) {
 		case rps.MsgMove:
 			go s.handleClientMove(conn, id, m.MsgContent)
 		default:
-			fmt.Println("Unrecognized message from client:")
-			fmt.Println(m)
+			fmt.Printf("Unrecognized message from client: %v\n", m)
 		}
 	}
 }
@@ -113,7 +112,7 @@ func (s *server) handleClientMove(conn *net.Conn, id int, move string) {
 	s.playerMutex.Unlock()
 	gameID := playerInfo.game
 	if gameID < 0 {
-		fmt.Println("Player not in a game")
+		fmt.Printf("Player %v not in a game\n", id)
 	}
 
 	// update game status
